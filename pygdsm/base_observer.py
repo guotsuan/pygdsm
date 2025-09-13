@@ -51,8 +51,8 @@ class BaseObserver(ephem.Observer):
 
         Parameters
         ----------
-        freq: float
-            Frequency of map to generate, in units of MHz (default).
+        freq: float or array-like
+            Frequency or frequencies of map to generate, in units of MHz (default).
         obstime: astropy.time.Time
             Time of observation to generate
         horizon_elevation: float
@@ -60,15 +60,13 @@ class BaseObserver(ephem.Observer):
 
         Returns
         -------
-        observed_sky: np.array
-            Numpy array representing the healpix image, centered on zenith,
-            with below the horizon masked.
+        observed_sky: np.array or list of np.array
+            Healpix image(s), centered on zenith, with below the horizon masked.
         """
-        # Check to see if frequency has changed.
+        # 支持 freq 为数组，直接传递给 self.gsm.generate
         if freq is not None:
-            if not np.isclose(freq, self._freq):
-                self.gsm.generate(freq)
-                self._freq = freq
+            self.gsm.generate(freq)
+            self._freq = freq
 
         sky = self.gsm.generated_map_data
 
@@ -141,7 +139,7 @@ class BaseObserver(ephem.Observer):
             self._observed_ra = ra_rotated
             self._observed_dec = dec_rotated
 
-        sky_rotated = sky[self._pix0]
+        sky_rotated = sky[:, self._pix0]
         mask_rotated = self._mask[self._pix0]
 
         self.observed_sky = hp.ma(sky_rotated)
@@ -149,7 +147,7 @@ class BaseObserver(ephem.Observer):
 
         return self.observed_sky
 
-    def view(self, logged=False, show=False, **kwargs):
+    def view(self, freq=None, logged=False, show=False, **kwargs):
         """View the local sky, in orthographic projection.
 
         Parameters
@@ -157,7 +155,21 @@ class BaseObserver(ephem.Observer):
         logged: bool
             Default False, return the log2 image
         """
+        if not isinstance(self._freq, (list, np.ndarray)):
+            print("Single frequency, freq parameter ignored.")
+        else:
+            if freq is not None:
+                if not isinstance(freq, (float, int)):
+                    raise TypeError("freq need to be float or int")
+                else:
+                    # 多频率情况
+                    freq_arr = np.array(self._freq)
+                    idx = np.argmin(np.abs(freq_arr - freq))
+                    sky = sky[idx]
+                    print(f"Multiple frequencies, choose to show map in {freq} MHz")
+                    print(f"Actually show map in {freq_arr[idx]} MHz")
         sky = self.observed_sky
+
         if logged:
             sky = np.log2(sky)
 
