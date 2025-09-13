@@ -139,7 +139,11 @@ class BaseObserver(ephem.Observer):
             self._observed_ra = ra_rotated
             self._observed_dec = dec_rotated
 
-        sky_rotated = sky[:, self._pix0]
+        if isinstance(sky, np.ndarray) and sky.ndim == 2:
+            sky_rotated = sky[:, self._pix0]
+        else:
+            sky_rotated = sky[self._pix0]
+
         mask_rotated = self._mask[self._pix0]
 
         self.observed_sky = hp.ma(sky_rotated)
@@ -157,6 +161,7 @@ class BaseObserver(ephem.Observer):
         """
         if not isinstance(self._freq, (list, np.ndarray)):
             print("Single frequency, freq parameter ignored.")
+            sky = self.observed_sky
         else:
             if freq is not None:
                 if not isinstance(freq, (float, int)):
@@ -165,10 +170,14 @@ class BaseObserver(ephem.Observer):
                     # 多频率情况
                     freq_arr = np.array(self._freq)
                     idx = np.argmin(np.abs(freq_arr - freq))
-                    sky = sky[idx]
                     print(f"Multiple frequencies, choose to show map in {freq} MHz")
                     print(f"Actually show map in {freq_arr[idx]} MHz")
-        sky = self.observed_sky
+                    sky = self.observed_sky[idx]
+            else:
+                sky = self.observed_sky[0]
+                freq_arr = np.array(self._freq)
+                print(f"Multiple frequencies, but freq is not specified, \
+                      show the mapin {freq_arr[0]} MHz")
 
         if logged:
             sky = np.log2(sky)
@@ -182,6 +191,7 @@ class BaseObserver(ephem.Observer):
     @property
     def observed_gsm(self):
         """Return the GSM (Mollweide), with below-horizon area masked."""
+        
         sky = self.observed_sky
 
         # Get RA and DEC of zenith
@@ -193,15 +203,23 @@ class BaseObserver(ephem.Observer):
         derotate = hp.Rotator(rot=[ra_deg, dec_deg])
         g0, g1 = derotate(self._theta, self._phi)
         pix0 = hp.ang2pix(self._n_side, g0, g1)
-        sky = sky[pix0]
+        if isinstance(sky, np.ndarray) and sky.ndim == 2:
+            sky = sky[:, pix0]
+        else:
+            sky = sky[pix0]
 
         coordrotate = hp.Rotator(coord=["C", "G"], inv=True)
         g0, g1 = coordrotate(self._theta, self._phi)
         pix0 = hp.ang2pix(self._n_side, g0, g1)
-        sky = sky[pix0]
+
+        if isinstance(sky, np.ndarray) and sky.ndim == 2:
+            sky = sky[:, pix0]
+        else:
+            sky = sky[pix0]
+
         return sky
 
-    def view_observed_gsm(self, logged=False, show=False, **kwargs):
+    def view_observed_gsm(self, freq=None, logged=False, show=False, **kwargs):
         """View the GSM (Mollweide), with below-horizon area masked.
 
         Args:
@@ -211,7 +229,26 @@ class BaseObserver(ephem.Observer):
         Returns:
             sky (np.array): Healpix map of observed GSM.
         """
-        sky = self.observed_gsm
+
+        if not isinstance(self._freq, (list, np.ndarray)):
+            print("Single frequency, freq parameter ignored.")
+            sky = self.observed_sky
+        else:
+            if freq is not None:
+                if not isinstance(freq, (float, int)):
+                    raise TypeError("freq need to be float or int")
+                else:
+                    # 多频率情况
+                    freq_arr = np.array(self._freq)
+                    idx = np.argmin(np.abs(freq_arr - freq))
+                    print(f"Multiple frequencies, choose to show map in {freq} MHz")
+                    print(f"Actually show map in {freq_arr[idx]} MHz")
+                    sky = self.observed_sky[idx]
+            else:
+                sky = self.observed_sky[0]
+                freq_arr = np.array(self._freq)
+                print(f"Multiple frequencies, but freq is not specified, \
+                      show the mapin {freq_arr[0]} MHz")
 
         if logged:
             sky = np.log2(sky)
