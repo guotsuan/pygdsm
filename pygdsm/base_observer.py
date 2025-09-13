@@ -232,7 +232,7 @@ class BaseObserver(ephem.Observer):
 
         if not isinstance(self._freq, (list, np.ndarray)):
             print("Single frequency, freq parameter ignored.")
-            sky = self.observed_sky
+            sky = self.observed_gsm
         else:
             if freq is not None:
                 if not isinstance(freq, (float, int)):
@@ -243,9 +243,9 @@ class BaseObserver(ephem.Observer):
                     idx = np.argmin(np.abs(freq_arr - freq))
                     print(f"Multiple frequencies, choose to show map in {freq} MHz")
                     print(f"Actually show map in {freq_arr[idx]} MHz")
-                    sky = self.observed_sky[idx]
+                    sky = self.observed_gsm[idx]
             else:
-                sky = self.observed_sky[0]
+                sky = self.observed_gsm[0]
                 freq_arr = np.array(self._freq)
                 print(f"Multiple frequencies, but freq is not specified, \
                       show the mapin {freq_arr[0]} MHz")
